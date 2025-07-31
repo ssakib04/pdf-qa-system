@@ -1,4 +1,4 @@
-import fitz  # PyMuPDF
+import fitz
 import re
 import numpy as np
 import faiss
@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import filedialog, scrolledtext
 from flask import Flask, request, jsonify
 import threading
-
+import os
 
 # -------------------------- Core Functions --------------------------
 
@@ -61,7 +61,7 @@ Question:
 
 Answer:"""
 
-    client = OpenAI(api_key="YOUR_API_KEY_HERE") 
+    client = OpenAI(api_key="YOUR_API_KEY_HERE")  # Replace with your actual key
 
     response = client.chat.completions.create(
         model="gpt-3.5-turbo",
@@ -73,7 +73,7 @@ Answer:"""
 
     return response.choices[0].message.content
 
-# -------------------------- Evaluation Function --------------------------
+# -------------------------- Evaluation --------------------------
 
 def evaluate_system(query, expected_keywords, pdf_path):
     text = clean_text(extract_text_from_pdf(pdf_path))
@@ -120,13 +120,27 @@ def run_flask_app():
 
 # -------------------------- GUI --------------------------
 
+pdf_path = None
+
+def select_pdf():
+    global pdf_path
+    path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
+    if path and os.path.exists(path):
+        pdf_path = path
+        text_widget.insert(tk.END, f"✅ Loaded PDF: {pdf_path}\n")
+    else:
+        text_widget.insert(tk.END, "❌ No valid file selected.\n")
+
 def run_query():
+    if not pdf_path:
+        text_widget.insert(tk.END, "❌ Please select a PDF first.\n")
+        return
+
     query = entry.get()
     text_widget.delete('1.0', tk.END)
-
     text_widget.insert(tk.END, "📄 Extracting text...\n")
-    text = extract_text_from_pdf(pdf_path)
-    text = clean_text(text)
+
+    text = clean_text(extract_text_from_pdf(pdf_path))
     chunks = chunk_text(text)
 
     text_widget.insert(tk.END, "🔎 Embedding chunks...\n")
@@ -148,18 +162,17 @@ def run_query():
 
 # -------------------------- Main --------------------------
 
-pdf_path = ""  # You can make this file dialog based if desired
-
 if __name__ == "__main__":
-    # Start Flask API in a background thread
     threading.Thread(target=run_flask_app, daemon=True).start()
 
-    # Launch GUI
     root = tk.Tk()
     root.title("PDF-Based Question Answering System")
 
     frame = tk.Frame(root)
     frame.pack(padx=10, pady=10)
+
+    btn_select = tk.Button(frame, text="Select PDF", command=select_pdf)
+    btn_select.pack()
 
     label = tk.Label(frame, text="Enter your question:")
     label.pack()
@@ -167,8 +180,8 @@ if __name__ == "__main__":
     entry = tk.Entry(frame, width=80)
     entry.pack()
 
-    btn = tk.Button(frame, text="Submit", command=run_query)
-    btn.pack(pady=5)
+    btn_submit = tk.Button(frame, text="Submit", command=run_query)
+    btn_submit.pack(pady=5)
 
     text_widget = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=100, height=30)
     text_widget.pack(padx=10, pady=10)
